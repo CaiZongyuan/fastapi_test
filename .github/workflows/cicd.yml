@@ -45,7 +45,14 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_NAME }}
-
+          tags: |
+            # 规则1: 使用分支名作为标签 (会生成 :main)
+            type=ref,event=branch
+            # 规则2: 使用 commit SHA 作为标签 (会生成 :sha-xxxxxxx)
+            type=sha
+            # 规则3 (终极修复): 如果触发的分支名字是 'main'，则强制添加 "latest" 标签
+            type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
+          # --- 结束修改 ---
       # 4. 构建并推送到 GHCR
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
