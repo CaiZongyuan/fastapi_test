@@ -55,3 +55,16 @@ def update_event(
     session.commit()
     session.refresh(obj)
     return obj
+
+# Delete this data
+# DELETE  /api/events/{event_id}
+@router.delete("/{event_id}")
+def delete_event(event_id: int, session: Session = Depends(get_session)):
+    query = select(EventModel).where(EventModel.id == event_id)
+    obj = session.exec(query).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Event not found")
+    session.delete(obj)
+    session.commit()
+    return {"message": "Event deleted"}
+
