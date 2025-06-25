@@ -1,0 +1,76 @@
+# .github/workflows/cicd.yml
+
+name: CI/CD for FastAPI App
+
+# 触发器：当有代码 push 到 main 分支时触发
+on:
+  push:
+    branches:
+      - main  # 或者 master
+
+# 环境变量，方便统一管理镜像名
+env:
+  # 格式为: 镜像仓库地址/GitHub用户名/仓库名
+  IMAGE_NAME: ${{ secrets.DOCKER_REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}
+
+jobs:
+  build-and-deploy:
+    name: Build, Push and Deploy
+    runs-on: ubuntu-latest # 使用最新的 Ubuntu 虚拟机
+
+    steps:
+      # 1. 拉取代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. 登录到 GitHub Container Registry (GHCR)
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.IMAGE_NAME }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.GITHUB_TOKEN }} # 使用 GitHub 自动生成的 Token
+
+      # 3. 提取元数据（标签等）
+      # 这个步骤会为我们的镜像生成一些有用的标签，例如：
+      # - 使用最新的 git commit hash (短哈希) 作为标签，例如: ghcr.io/user/repo:a1b2c3d
+      # - 使用 'latest' 作为标签，例如: ghcr.io/user/repo:latest
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+
+      # 4. 构建并推送到 GHCR
+      - name: Build and push Docker image
+        uses: docker/build-and-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.web  # 明确指定 Dockerfile 路径
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      # 5. 部署到服务器
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # 进入你的项目部署目录
+            cd /root/project/cicd  # <--- 修改为你在服务器上的项目路径
+
+            # 将最新的环境变量文件从你的仓库（如果需要）或安全位置复制过来
+            # 此处假设 .env.compose 已存在于服务器的项目目录中
+
+            # 使用生产环境的 compose 文件
+            # 1. 拉取最新的 app 镜像
+            docker-compose -f compose.prod.yaml pull app
+            
+            # 2. 重新创建 app 服务。--no-deps 确保不会影响数据库等依赖服务
+            docker-compose -f compose.prod.yaml up -d --no-deps app
+            
+            # 3. (可选) 清理旧的、不再使用的 Docker 镜像，释放磁盘空间
+            docker image prune -af

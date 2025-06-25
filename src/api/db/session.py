@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel, Session, create_engine
 
-from .config import DATABASE_URL, DB_TIMEZONE
+from .config import DATABASE_URL
 
 if DATABASE_URL == "":
     raise NotImplementedError("DATABASE_URL needs to be set")
