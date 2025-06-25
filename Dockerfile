@@ -1,0 +1,79 @@
+# 1 - 基础镜像
+# 设置 ARG 来定义 Python 版本变量
+# 从一个官方的 Python 3.13.2 的 slim 版本镜像开始。
+# "slim" 表示这是一个最小化的镜像，只包含运行 Python 的必要组件，可以减小最终镜像的体积。
+# "bullseye" 是 Debian 11 操作系统的代号。
+ARG PYTHON_VERSION=3.13.2-slim-bullseye
+FROM python:${PYTHON_VERSION}
+
+# 创建一个虚拟环境
+# 在 /opt/venv 目录下创建一个独立的 Python 虚拟环境。
+# 这是一个最佳实践，可以避免项目依赖和系统级的 Python 库产生冲突。
+RUN python -m venv /opt/venv
+
+# 将虚拟环境的 bin 目录添加到系统 PATH 中
+# 这样，后续的命令（如 pip, python）会默认使用虚拟环境中的版本，而不是系统的。
+ENV PATH="/opt/venv/bin:$PATH"
+
+# 升级 pip
+# 确保我们使用的是最新版本的 pip 包管理器。
+RUN pip install --upgrade pip
+
+# 设置 Python 相关的环境变量
+# PYTHONDONTWRITEBYTECODE=1: 禁止 Python 生成 .pyc 缓存文件，可以保持容器的整洁。
+ENV PYTHONDONTWRITEBYTECODE=1
+# PYTHONUNBUFFERED=1: 强制 Python 的输出（例如 print 语句）直接发送到终端，不进行缓冲。
+# 这对于在 Docker logs 中实时查看日志至关重要。
+ENV PYTHONUNBUFFERED=1
+
+# 为我们的“迷你虚拟机”安装操作系统依赖
+# "apt-get update" 更新包列表，然后 "apt-get install -y" 安装所需的库。
+RUN apt-get update && apt-get install -y \
+        # 用于 psycopg2 (PostgreSQL 数据库驱动)
+        libpq-dev \
+        # 用于 Pillow (图像处理库)
+        libjpeg-dev \
+        # 用于 CairoSVG (SVG 转换库)
+        libcairo2 \
+        # 其他，例如 gcc 编译器，用于编译某些 Python 包的 C 扩展
+        gcc \
+        # 安装后立即清理 apt 缓存，以减小镜像体积
+        && rm -rf /var/lib/apt/lists/*
+
+# 创建存放应用程序代码的目录
+RUN mkdir -p /code
+
+# 将工作目录设置为刚刚创建的 /code 目录
+# 后续的 RUN, CMD, COPY 等指令都将在这个目录下执行。
+WORKDIR /code
+
+# 将依赖文件复制到容器中
+# 为了更好地利用 Docker 的层缓存机制，先只复制依赖文件。
+# 这样如果只有代码变动而依赖不变，Docker 无需重新安装所有包。
+COPY requirements.txt /tmp/requirements.txt
+
+# 将项目源代码复制到容器的工作目录中
+# 将本地的 src 目录下的所有文件复制到容器的 /code 目录下。
+COPY ./src /code
+
+# 安装 Python 项目的依赖
+# 使用 pip 根据 /tmp/requirements.txt 文件中的列表安装所有 Python 包。
+RUN pip install -r /tmp/requirements.txt
+
+
+# 使 bash 启动脚本可执行
+# 复制启动脚本到容器内，并赋予它执行权限。
+COPY ./boot/docker-run.sh /opt/run.sh
+RUN chmod +x /opt/run.sh
+
+# (此部分冗余) 清理 apt 缓存以减小镜像大小
+# 注意：这一步是多余的，因为它在前面安装依赖时已经执行过了。
+# 而且这里没有指定要移除的包，所以 "remove --purge" 不会起作用。可以安全地删除这个块。
+RUN apt-get remove --purge -y \
+        && apt-get autoremove -y \
+        && apt-get clean \
+        && rm -rf /var/lib/apt/lists/*
+
+# 设置容器启动时要执行的命令
+# 当容器启动时，它将运行 /opt/run.sh 脚本来启动 FastAPI 项目。
+CMD ["/opt/run.sh"]
