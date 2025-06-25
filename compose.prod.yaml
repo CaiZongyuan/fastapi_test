@@ -1,12 +1,9 @@
-# compose.prod.yaml
-version: '3.8'
-
 services:
   app:
     # 重点：我们不再使用 build，而是直接指定镜像名。
     # 这个名字将由 GitHub Actions 动态构建和推送。
     # 例如：ghcr.io/你的用户名/你的仓库名:latest
-    image: ghcr.io/CaiZongyuan/fastapi_test:latest # <--- 在此填写你的镜像信息
+    image: ghcr.io/caizongyuan/fastapi_test:latest # <--- 在此填写你的镜像信息
     restart: always # 推荐生产环境使用，确保容器失败后能自动重启
     env_file:
       - .env.compose # 环境变量文件保持不变
