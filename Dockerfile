@@ -60,19 +60,10 @@ COPY ./src /code
 # 使用 pip 根据 /tmp/requirements.txt 文件中的列表安装所有 Python 包。
 RUN pip install -r /tmp/requirements.txt
 
-
 # 使 bash 启动脚本可执行
 # 复制启动脚本到容器内，并赋予它执行权限。
 COPY ./boot/docker-run.sh /opt/run.sh
 RUN chmod +x /opt/run.sh
-
-# (此部分冗余) 清理 apt 缓存以减小镜像大小
-# 注意：这一步是多余的，因为它在前面安装依赖时已经执行过了。
-# 而且这里没有指定要移除的包，所以 "remove --purge" 不会起作用。可以安全地删除这个块。
-RUN apt-get remove --purge -y \
-        && apt-get autoremove -y \
-        && apt-get clean \
-        && rm -rf /var/lib/apt/lists/*
 
 # 设置容器启动时要执行的命令
 # 当容器启动时，它将运行 /opt/run.sh 脚本来启动 FastAPI 项目。

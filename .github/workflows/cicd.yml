@@ -18,6 +18,11 @@ jobs:
     name: Build, Push and Deploy
     runs-on: ubuntu-latest # 使用最新的 Ubuntu 虚拟机
 
+    # <--- 在这里添加权限声明 --->
+    permissions:
+      contents: read       # 读取仓库内容（用于 checkout）是必须的
+      packages: write     # 写入软件包（用于推送 Docker 镜像）是必须的
+
     steps:
       # 1. 拉取代码
       - name: Checkout code
