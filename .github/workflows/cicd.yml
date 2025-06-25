@@ -72,10 +72,10 @@ jobs:
 
             # 使用生产环境的 compose 文件
             # 1. 拉取最新的 app 镜像
-            docker-compose -f compose.prod.yaml pull app
+            docker compose -f compose.prod.yaml pull app
             
             # 2. 重新创建 app 服务。--no-deps 确保不会影响数据库等依赖服务
-            docker-compose -f compose.prod.yaml up -d --no-deps app
+            docker compose -f compose.prod.yaml up -d --no-deps app
             
             # 3. (可选) 清理旧的、不再使用的 Docker 镜像，释放磁盘空间
-            docker image prune -af
+            # docker image prune -af
